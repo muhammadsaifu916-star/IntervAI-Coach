@@ -2,8 +2,8 @@ import re
 from rest_framework import serializers
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone
+from rest_framework import serializers
 from .models import User, EmailVerificationOTP
-
 
 class RegisterSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=False, validators=[])
@@ -70,17 +70,20 @@ class RegisterSerializer(serializers.ModelSerializer):
         email = validated_data['email']
 
         user = User.objects.create_user(
-            username=email,
-            email=email,
-            password=validated_data['password'],
-            role=validated_data['role'],
-            phone=validated_data.get('phone'),
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            is_active=False,
-            email_verified=False,
-        )
+        username=email,
+        email=email,
+        password=validated_data['password'],
+        role=validated_data['role'],
+        phone=validated_data.get('phone'),
+        first_name=validated_data.get('first_name', ''),
+        last_name=validated_data.get('last_name', ''),
+        is_active=False,
+        email_verified=False,
+    )
         return user
+    
+    from django.contrib.auth.hashers import check_password
+from django.utils import timezone
 
 
 class VerifyEmailOTPSerializer(serializers.Serializer):
