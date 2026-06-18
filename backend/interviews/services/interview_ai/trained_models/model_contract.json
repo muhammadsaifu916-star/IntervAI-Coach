@@ -1,0 +1,51 @@
+{
+  "technical_feature_columns": [
+    "answer_text",
+    "word_count",
+    "keyword_hits",
+    "clarity_score",
+    "relevance_score",
+    "correctness_score",
+    "skill_area",
+    "experience_band"
+  ],
+  "personality_feature_columns": [
+    "answer_text",
+    "empathy_score",
+    "structure_score",
+    "positivity_score",
+    "ownership_score",
+    "trait",
+    "experience_band"
+  ],
+  "session_feature_columns": [
+    "experience_years",
+    "technical_score",
+    "personality_score",
+    "communication_score",
+    "attentiveness_score",
+    "eye_contact_score",
+    "filler_ratio",
+    "avg_answer_seconds",
+    "grammar_score",
+    "confidence_score",
+    "tab_switches",
+    "window_blur_events",
+    "screenshot_attempted",
+    "device_detected",
+    "gaze_off_over_20s",
+    "camera_available",
+    "mic_available",
+    "english_only_violation",
+    "experience_band"
+  ],
+  "question_generation_feature_columns": [
+    "years_experience",
+    "role",
+    "experience_band",
+    "focus_area",
+    "skill_topic",
+    "difficulty_level"
+  ],
+  "pass_mark": 70
+}
