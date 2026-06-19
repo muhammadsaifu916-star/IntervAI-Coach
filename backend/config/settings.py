@@ -248,6 +248,17 @@ DEFAULT_FROM_EMAIL = os.getenv(
     EMAIL_HOST_USER or 'IntervAI Coach <no-reply@intervai.local>'
 )
 
+# ── Resend (HTTP email API) ───────────────────────────────────────────────────
+# Used for sending email in production where outbound SMTP is blocked (Railway).
+# When RESEND_API_KEY is set, users.services routes mail through the Resend HTTP
+# API (port 443) instead of SMTP. When it's empty, the app falls back to the
+# Django EMAIL_BACKEND above (console locally / SMTP), so local dev is unchanged.
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+# The verified sender. For quick testing use Resend's sandbox sender
+# 'onboarding@resend.dev' (no domain setup needed). To send from your own
+# address, verify a domain in Resend and set it here.
+RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'IntervAI Coach <onboarding@resend.dev>')
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 # Send application errors to the console (captured by Railway logs) so we can
 # log full exceptions server-side while returning generic messages to clients.
