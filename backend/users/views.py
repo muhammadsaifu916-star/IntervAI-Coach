@@ -136,10 +136,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         if (
             user
-            and not user.is_active
-            and not user.email_verified
+            and (not user.is_active or not user.email_verified)
             and user.check_password(password)
-        ):
+):
             raise serializers.ValidationError({
                 "detail": "Please verify your email before logging in.",
                 "email_not_verified": True,
