@@ -31,7 +31,7 @@ CORS_ALLOWED_ORIGINS = get_env_list(
     "CORS_ALLOWED_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173"
 )
-CORS_ALLOW_CREDENTIALS = True  # ← add this line
+CORS_ALLOW_CREDENTIALS = os.getenv('CORS_ALLOW_CREDENTIALS', 'True') == 'True'
 
 # Session and Cookie Settings for Production
 SESSION_COOKIE_SECURE = True  # Only send over HTTPS
