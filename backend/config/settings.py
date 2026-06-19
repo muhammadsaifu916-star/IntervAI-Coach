@@ -24,12 +24,14 @@ def get_env_list(name, default=""):
 # Backend domain
 ALLOWED_HOSTS = get_env_list(
     "ALLOWED_HOSTS",
-    "localhost,127.0.0.1"
+    "localhost,127.0.0.1",
+    "fypproo.netlify.app"
 )
 # Frontend domain
 CORS_ALLOWED_ORIGINS = get_env_list(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173"
+    "http://localhost:5173,http://127.0.0.1:5173",
+    "https://fypproo.netlify.app"
 )
 CORS_ALLOW_CREDENTIALS = True  # ← add this line
 
