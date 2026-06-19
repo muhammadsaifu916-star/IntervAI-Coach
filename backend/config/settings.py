@@ -31,6 +31,8 @@ CORS_ALLOWED_ORIGINS = get_env_list(
     "CORS_ALLOWED_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173"
 )
+CORS_ALLOW_CREDENTIALS = True  # ← add this line
+
 # Session and Cookie Settings for Production
 SESSION_COOKIE_SECURE = True  # Only send over HTTPS
 SESSION_COOKIE_HTTPONLY = True
@@ -69,9 +71,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # ← MOVE TO TOP
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
