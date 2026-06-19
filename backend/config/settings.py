@@ -172,7 +172,7 @@ REST_FRAMEWORK = {
 }
 
 # CORS Configuration - Allow all origins for API
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_ALL_ORIGINS = True
 
 EMAIL_BACKEND = os.getenv(
     'EMAIL_BACKEND',
