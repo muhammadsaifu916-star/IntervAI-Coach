@@ -182,3 +182,8 @@ DEFAULT_FROM_EMAIL = os.getenv(
     'DEFAULT_FROM_EMAIL',
     EMAIL_HOST_USER or 'IntervAI Coach <no-reply@intervai.local>'
 )  
+
+# CSRF Cookie Security Settings for Production
+CSRF_COOKIE_SECURE = True  # Only send cookie over HTTPS
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to access CSRF token
+CSRF_COOKIE_SAMESITE = 'Lax'  # Allow cross-site requests
