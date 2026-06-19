@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
@@ -33,21 +34,39 @@ CORS_ALLOWED_ORIGINS = get_env_list(
 )
 CORS_ALLOW_CREDENTIALS = os.getenv('CORS_ALLOW_CREDENTIALS', 'True') == 'True'
 
-# Session and Cookie Settings for Production
-SESSION_COOKIE_SECURE = True  # Only send over HTTPS
-SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
-
-# CSRF Settings
-CSRF_COOKIE_SECURE = True
-CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = 'Lax'
-# Frontend domain
-
+# Frontend domain(s) trusted for unsafe (POST/PUT/PATCH/DELETE) cross-origin requests.
 CSRF_TRUSTED_ORIGINS = get_env_list(
     "CSRF_TRUSTED_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173,https://intervai-coach-production.up.railway.app,https://fypproo.netlify.app"
 )
+
+# ── Security: cookies ─────────────────────────────────────────────────────────
+# Secure cookies require HTTPS. Enable them in production (DEBUG=False) only, so
+# local development over plain HTTP still works.
+SESSION_COOKIE_SECURE = not DEBUG          # Only send session cookie over HTTPS
+SESSION_COOKIE_HTTPONLY = True             # Block JS access to the session cookie
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+CSRF_COOKIE_SECURE = not DEBUG             # Only send CSRF cookie over HTTPS
+CSRF_COOKIE_HTTPONLY = False               # Frontend JS must read the CSRF token
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# ── Security: HTTPS / transport hardening (production only) ────────────────────
+# Railway (and most PaaS) terminate TLS at a proxy and forward the original
+# scheme in the X-Forwarded-Proto header. Without this, Django thinks every
+# request is plain HTTP and the secure-cookie / SSL-redirect logic misbehaves.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True              # Redirect all HTTP traffic to HTTPS
+
+    # HTTP Strict Transport Security — tell browsers to only use HTTPS.
+    SECURE_HSTS_SECONDS = 31536000          # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# Applied in all environments — cheap, no downside.
+SECURE_CONTENT_TYPE_NOSNIFF = True         # Block MIME-type sniffing
+X_FRAME_OPTIONS = 'DENY'                    # Reject framing (clickjacking defence)
 
 # Application definition
 
@@ -71,7 +90,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # ← MOVE TO TOP
+    # CorsMiddleware must stay at the top, before anything that can return a
+    # response (e.g. CommonMiddleware redirects), so CORS headers are attached.
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -171,10 +192,32 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.User'
 
+# ── Django REST Framework ─────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    # Rate limiting — throttles brute-force against login / register / OTP and
+    # abuse of authenticated endpoints. Tune the rates to taste.
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '30/min',    # unauthenticated requests (login, register, OTP)
+        'user': '120/min',   # authenticated requests
+    },
+}
+
+# ── Simple JWT ────────────────────────────────────────────────────────────────
+# Explicit token lifetimes + refresh rotation with blacklisting, instead of
+# relying on library defaults.
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': True,
 }
 
 EMAIL_BACKEND = os.getenv(
@@ -191,9 +234,28 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv(
     'DEFAULT_FROM_EMAIL',
     EMAIL_HOST_USER or 'IntervAI Coach <no-reply@intervai.local>'
-)  
+)
 
-# CSRF Cookie Security Settings for Production
-CSRF_COOKIE_SECURE = True  # Only send cookie over HTTPS
-CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to access CSRF token
-CSRF_COOKIE_SAMESITE = 'Lax'  # Allow cross-site requests
+# ── Logging ───────────────────────────────────────────────────────────────────
+# Send application errors to the console (captured by Railway logs) so we can
+# log full exceptions server-side while returning generic messages to clients.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}

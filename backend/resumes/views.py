@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -5,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from django.db import transaction
+
+logger = logging.getLogger(__name__)
 
 from .models import Resume
 from .serializers import ResumeUploadSerializer
@@ -50,16 +54,19 @@ def upload_resume(request):
             target_role=job_role,
             years_of_experience=years_experience,
         )
-    except Exception as e:
+    except Exception:
         # Clean up newly uploaded file if analysis fails
         if resume.file:
             resume.file.delete(save=False)
         resume.delete()
 
+        # Log the full exception server-side; return a generic message so we
+        # don't leak internal details (stack traces, library errors) to clients.
+        logger.exception("Resume analysis failed for user %s", request.user.id)
+
         return Response(
             {
-                "error": "Resume analysis failed.",
-                "details": str(e),
+                "error": "Resume analysis failed. Please try again with a different file.",
             },
             status=status.HTTP_400_BAD_REQUEST,
         )

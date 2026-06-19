@@ -1,4 +1,5 @@
 import json
+import logging
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -6,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
 from datetime import timedelta
+
+logger = logging.getLogger(__name__)
 
 from .models import InterviewSession, InterviewQuestion, InterviewAnswer
 from .serializers import (
@@ -296,9 +299,10 @@ def start_interview(request):
             analysis, cooldown_until = _finalize_session(
                 user, in_flight, list(questions), answers_map, interview_expired=True,
             )
-        except Exception as exc:
+        except Exception:
+            logger.exception("Interview analysis failed for user %s (expired session)", user.id)
             return Response(
-                {'error': 'Interview analysis failed.', 'details': str(exc)},
+                {'error': 'Interview analysis failed. Please try again.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         latest_submitted = in_flight
@@ -339,9 +343,10 @@ def start_interview(request):
             seed=interview_seed,
             exclude_questions=_previously_used_question_texts(user, job_role, experience_band),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception("Interview question generation failed")
         return Response(
-            {'error': 'Could not generate interview questions.', 'details': str(exc)},
+            {'error': 'Could not generate interview questions. Please try again.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -509,9 +514,10 @@ def submit_interview(request):
             answers_map,
             interview_expired=interview_expired,
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception("Interview analysis failed for user %s (submit)", request.user.id)
         return Response(
-            {'error': 'Interview analysis failed.', 'details': str(exc)},
+            {'error': 'Interview analysis failed. Please try again.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
