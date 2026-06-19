@@ -66,11 +66,43 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'config.middleware.CSRFExemptApiMiddleware',  # ← ADD THIS LINE
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+# CSRF Configuration for API
+# Disable CSRF for API endpoints since we're using JWT tokens
+CSRF_TRUSTED_ORIGINS = get_env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173"
+)
+
+# Exempt API endpoints from CSRF protection (they use JWT tokens instead)
+CSRF_EXEMPT_PATHS = [
+    '/api/',
+]
+
+# Custom middleware to exempt API routes from CSRF
+class CSRFExemptApiMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Exempt API routes from CSRF protection
+        if request.path.startswith('/api/'):
+            request.csrf_processing_done = True
+        return self.get_response(request)
+
+
+
+
+
+
+
+
+
 
 ROOT_URLCONF = 'config.urls'
 
