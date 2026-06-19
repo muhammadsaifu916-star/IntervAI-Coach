@@ -228,8 +228,20 @@ EMAIL_BACKEND = os.getenv(
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+# SSL (port 465) is an alternative to TLS (port 587). They are mutually
+# exclusive — only one may be True. If SSL is requested, force TLS off so
+# Django doesn't raise "EMAIL_USE_TLS/EMAIL_USE_SSL are mutually exclusive".
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False') == 'True'
+if EMAIL_USE_SSL:
+    EMAIL_USE_TLS = False
+
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+
+# Fail fast instead of hanging the gunicorn worker forever when the SMTP host
+# is unreachable (e.g. the platform blocks outbound port 587). Without this,
+# a blocked connection holds the worker open until it is SIGKILL'd.
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '10'))  # seconds
 
 DEFAULT_FROM_EMAIL = os.getenv(
     'DEFAULT_FROM_EMAIL',

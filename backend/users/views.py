@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.utils import timezone
@@ -16,6 +17,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .serializers import RegisterSerializer
 
+logger = logging.getLogger(__name__)
+
 
 @api_view(['POST'])
 def register_user(request):
@@ -27,12 +30,17 @@ def register_user(request):
         try:
             send_email_verification_otp(user)
         except Exception:
+            # Roll back the just-created account so the email/phone aren't left
+            # reserved by an unusable row, and the user can retry cleanly.
             user.delete()
+            # Log the real cause server-side (SMTP timeout, auth error, etc.).
+            logger.exception("OTP email failed to send during registration")
             return Response(
                 {
-                    "error": "Account could not be created because the OTP email failed to send. Please check email settings."
+                    "error": "We couldn't send your verification email right now. "
+                             "Please try again in a moment."
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         return Response(
