@@ -1,16 +1,13 @@
 import secrets
+import threading
 from datetime import timedelta
-
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail
 from django.utils import timezone
-
 from .models import EmailVerificationOTP
 
-
 OTP_EXPIRY_MINUTES = 10
-
 
 def send_email_verification_otp(user):
     code = str(secrets.randbelow(900000) + 100000)
@@ -34,10 +31,18 @@ def send_email_verification_otp(user):
         'If you did not create this account, please ignore this email.'
     )
 
-    send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-        fail_silently=False,
-    )
+    def _send():
+        try:
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+    thread = threading.Thread(target=_send)
+    thread.daemon = True
+    thread.start()
