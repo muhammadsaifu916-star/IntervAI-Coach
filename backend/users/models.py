@@ -12,7 +12,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     phone = models.CharField(max_length=20, blank=True, null=True, unique=True)
 
-    email_verified = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=True)
 
     # Retry cooldowns live on the user (not the attempt) so they survive a
     # resume re-upload, which wipes quiz/interview sessions.
