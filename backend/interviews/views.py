@@ -29,8 +29,8 @@ from .services.attentiveness_monitoring import (
 )
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-INTERVIEW_NUM_QUESTIONS        = 6
-INTERVIEW_TIME_LIMIT_SECONDS   = 900   # 15 minutes
+INTERVIEW_NUM_QUESTIONS        = 8
+INTERVIEW_TIME_LIMIT_SECONDS   = 1500   # 15 minutes
 QUIZ_PASS_SCORE_REQUIRED       = 70
 COOLDOWN_DAYS_EXPIRED          = 3
 

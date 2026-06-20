@@ -28,11 +28,7 @@ interface InterviewQuestion {
 type PageState = 'loading' | 'locked' | 'setup' | 'active' | 'submitting';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const INTERVIEW_TIME_LIMIT = 900; // 15 min fallback
-// Number of combined focus events (window blur / fullscreen exit) tolerated before
-// the attempt is auto-submitted. A tab switch is handled separately and ends the
-// interview on the FIRST occurrence (see submitViolation + the backend, which now
-// treats tab_switches as an instant hard fail). gaze_off_over_20s stays tiered.
+const INTERVIEW_TIME_LIMIT = 1500;
 const FOCUS_VIOLATION_LIMIT = 1;
 const NON_ENGLISH_PATTERN = /[^\x00-\x7F]/;
 
