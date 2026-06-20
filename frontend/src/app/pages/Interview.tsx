@@ -1242,7 +1242,7 @@ export default function Interview() {
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <p className="text-sm text-blue-800">
-                      <strong>Total Questions:</strong> 6 (Technical + Personality)<br />
+                      <strong>Total Questions:</strong> 8 (Technical + Personality)<br />
                       <strong>Time Limit:</strong> {Math.round(timeLeft / 60)} minutes<br />
                       <strong>Passing Score:</strong> 70%
                     </p>
