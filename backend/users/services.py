@@ -25,12 +25,64 @@ def _build_otp_email(code):
     return subject, message
 
 
-def _send_via_resend(to_email, subject, message):
+def _parse_sender(raw):
     """
-    Send through the Resend HTTP API (https://resend.com).
+    Split a 'Name <email@host>' string into (name, email).
+    Falls back to (None, raw) if there's no angle-bracket form.
+    """
+    raw = (raw or '').strip()
+    if '<' in raw and raw.endswith('>'):
+        name = raw[:raw.index('<')].strip()
+        email = raw[raw.index('<') + 1:-1].strip()
+        return (name or None), email
+    return None, raw
+
+
+def _send_via_brevo(to_email, subject, message):
+    """
+    Send through the Brevo (Sendinblue) HTTP API.
 
     Uses HTTPS (port 443), so it works on hosts that block outbound SMTP
-    (e.g. Railway). Raises on failure so the caller can roll back / report.
+    (e.g. Railway). Unlike Resend's sandbox, Brevo delivers to ANY recipient
+    once the sender email is verified — no domain required. Raises on failure.
+    """
+    import requests
+
+    api_key = settings.BREVO_API_KEY
+    sender_name, sender_email = _parse_sender(settings.BREVO_FROM_EMAIL)
+
+    sender = {'email': sender_email}
+    if sender_name:
+        sender['name'] = sender_name
+
+    resp = requests.post(
+        'https://api.brevo.com/v3/smtp/email',
+        headers={
+            'api-key': api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        },
+        json={
+            'sender': sender,
+            'to': [{'email': to_email}],
+            'subject': subject,
+            'textContent': message,
+        },
+        timeout=15,
+    )
+
+    # Raise for any non-2xx so registration treats it as a failed send and
+    # rolls back the account (the response body names the exact problem).
+    if resp.status_code >= 300:
+        raise RuntimeError(f'Brevo API error {resp.status_code}: {resp.text}')
+
+    return resp
+
+
+def _send_via_resend(to_email, subject, message):
+    """
+    Send through the Resend HTTP API (kept as an alternative provider).
+    Uses HTTPS (port 443). Raises on failure.
     """
     import requests
 
@@ -52,11 +104,8 @@ def _send_via_resend(to_email, subject, message):
         timeout=15,
     )
 
-    # Raise for any non-2xx so registration treats it as a failed send.
     if resp.status_code >= 300:
-        raise RuntimeError(
-            f'Resend API error {resp.status_code}: {resp.text}'
-        )
+        raise RuntimeError(f'Resend API error {resp.status_code}: {resp.text}')
 
     return resp
 
@@ -78,10 +127,14 @@ def send_email_verification_otp(user):
 
     subject, message = _build_otp_email(code)
 
-    # Prefer the Resend HTTP API when configured (production on Railway).
-    # Fall back to Django's email backend (console/SMTP) otherwise, so local
-    # development keeps working exactly as before with no Resend account.
-    if getattr(settings, 'RESEND_API_KEY', ''):
+    # Provider priority (production on Railway, where SMTP is blocked):
+    #   1. Brevo  — sends to ANY recipient with just a verified sender email.
+    #   2. Resend — sandbox only delivers to the account owner's address.
+    # If neither key is set, fall back to Django's email backend (console
+    # locally / SMTP), so local development works unchanged.
+    if getattr(settings, 'BREVO_API_KEY', ''):
+        _send_via_brevo(user.email, subject, message)
+    elif getattr(settings, 'RESEND_API_KEY', ''):
         _send_via_resend(user.email, subject, message)
     else:
         send_mail(

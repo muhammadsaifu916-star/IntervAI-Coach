@@ -248,6 +248,17 @@ DEFAULT_FROM_EMAIL = os.getenv(
     EMAIL_HOST_USER or 'IntervAI Coach <no-reply@intervai.local>'
 )
 
+# ── Brevo (HTTP email API) ────────────────────────────────────────────────────
+# Primary email provider for production. Brevo sends over HTTPS (port 443), so
+# it works on hosts that block outbound SMTP (Railway). Its key advantage for an
+# FYP: it delivers to ANY recipient once you verify a single sender email — no
+# domain ownership required (unlike Resend's sandbox, which only mails the
+# account owner). When BREVO_API_KEY is set, users.services routes mail here.
+BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
+# The verified sender. Verify this address in Brevo (Senders & IPs → Senders);
+# it can be your own Gmail — Brevo sends you a confirmation link to click once.
+BREVO_FROM_EMAIL = os.getenv('BREVO_FROM_EMAIL', 'IntervAI Coach <wayalyasin0483@gmail.com>')
+
 # ── Resend (HTTP email API) ───────────────────────────────────────────────────
 # Used for sending email in production where outbound SMTP is blocked (Railway).
 # When RESEND_API_KEY is set, users.services routes mail through the Resend HTTP
