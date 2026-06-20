@@ -29,10 +29,10 @@ type PageState = 'loading' | 'locked' | 'setup' | 'active' | 'submitting';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const INTERVIEW_TIME_LIMIT = 900; // 15 min fallback
-// Combined tab-switch + window-blur + fullscreen-exit events tolerated before the
-// attempt is auto-submitted. Must match FOCUS_VIOLATION_HARD_FAIL_LIMIT on the
-// backend (interviews/services/interview_ai/engine.py). The candidate gets
-// (LIMIT - 1) warnings before the interview ends.
+// Number of combined focus events (window blur / fullscreen exit) tolerated before
+// the attempt is auto-submitted. A tab switch is handled separately and ends the
+// interview on the FIRST occurrence (see submitViolation + the backend, which now
+// treats tab_switches as an instant hard fail). gaze_off_over_20s stays tiered.
 const FOCUS_VIOLATION_LIMIT = 1;
 const NON_ENGLISH_PATTERN = /[^\x00-\x7F]/;
 
@@ -707,12 +707,15 @@ export default function Interview() {
     questions.forEach(q => { answersPayload[String(q.id)] = transcripts[q.id] || ''; });
 
     const monitoring = monitoringRef.current;
+    // Drain any samples captured since the last periodic flush so the backend
+    // has the complete set when it computes the final attentiveness grade.
+    const remainingSamples = pendingMonitoringSamplesRef.current.splice(0);
     const formData = new FormData();
     formData.append('session_id', String(sessionId));
     formData.append('answers', JSON.stringify(answersPayload));
     formData.append('answer_timings', JSON.stringify(answerTimingsRef.current));
     formData.append('monitoring', JSON.stringify({
-      samples: [],
+      samples: remainingSamples,
       events: {
         tab_switches: monitoring.tab_switches,
         window_blur_events: monitoring.window_blur_events,

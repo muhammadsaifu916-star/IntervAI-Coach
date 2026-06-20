@@ -42,6 +42,9 @@ const LIVE_ALPHA = 0.3;
 const NO_FACE_WARN_STREAK = 6;       // ~4.8 s
 const MULTI_FACE_WARN_STREAK = 3;    // ~2.4 s
 const LOW_EYE_CONTACT_WARN_STREAK = 6;
+// Sustained loss of attention that should register a gaze_off_over_20s event.
+// At SAMPLE_INTERVAL_MS (800 ms), 25 samples ≈ 20 s. Re-armed after attention returns.
+const SUSTAINED_GAZE_OFF_STREAK = 25;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type MonitoringPhase = 'idle' | 'preflight' | 'scoring';
@@ -59,6 +62,18 @@ interface UseAttentivenessMonitoringArgs {
    */
   phase: MonitoringPhase;
   videoRef: RefObject<HTMLVideoElement | null>;
+  /**
+   * Called once per scored frame during the 'scoring' phase with the per-frame
+   * classification. The interview page batches these and posts them to the
+   * backend, which is the authority for the final attentiveness/eye-contact
+   * grade. Not called during 'preflight' or 'idle'.
+   */
+  onSample?: (sample: { attentive: boolean; eye_contact: boolean }) => void;
+  /**
+   * Called once each time gaze/attention is lost continuously for ~20s during
+   * the 'scoring' phase, so the page can record a gaze_off_over_20s event.
+   */
+  onSustainedGazeOff?: () => void;
 }
 
 export interface AttentivenessMonitoringResult {
@@ -217,6 +232,8 @@ async function createFaceLandmarker(): Promise<FaceLandmarker> {
 export function useAttentivenessMonitoring({
   phase,
   videoRef,
+  onSample,
+  onSustainedGazeOff,
 }: UseAttentivenessMonitoringArgs): AttentivenessMonitoringResult {
   const [attentivenessScore, setAttentivenessScore] = useState(100);
   const [eyeContactScore, setEyeContactScore] = useState(100);
@@ -229,6 +246,13 @@ export function useAttentivenessMonitoring({
   const [warning, setWarning] = useState<string | null>(null);
 
   const landmarkerRef = useRef<FaceLandmarker | null>(null);
+
+  // Keep the latest callbacks in refs so the sampling loop always calls the
+  // current versions without re-running the effect (which would reset calibration).
+  const onSampleRef = useRef(onSample);
+  const onSustainedGazeOffRef = useRef(onSustainedGazeOff);
+  onSampleRef.current = onSample;
+  onSustainedGazeOffRef.current = onSustainedGazeOff;
 
   const calSamplesRef = useRef<Baseline[]>([]);
   const calStartRef = useRef(0);
@@ -244,6 +268,7 @@ export function useAttentivenessMonitoring({
     noFaceStreak: 0,
     multiFaceStreak: 0,
     lowEcStreak: 0,
+    gazeOffStreak: 0,
     warnedNoFace: false,
     warnedMulti: false,
     warnedEc: false,
@@ -279,7 +304,7 @@ export function useAttentivenessMonitoring({
       liveEcRef.current = 100;
       statsRef.current = {
         total: 0, attentive: 0, eyeContact: 0,
-        noFaceStreak: 0, multiFaceStreak: 0, lowEcStreak: 0,
+        noFaceStreak: 0, multiFaceStreak: 0, lowEcStreak: 0, gazeOffStreak: 0,
         warnedNoFace: false, warnedMulti: false, warnedEc: false,
       };
       setAttentivenessScore(100);
@@ -365,15 +390,32 @@ export function useAttentivenessMonitoring({
       if (raw.reason === 'ok' && !frame.eyeContact) st.lowEcStreak += 1;
       else if (frame.eyeContact) { st.lowEcStreak = 0; st.warnedEc = false; }
 
+      // Sustained attention-loss streak → one gaze_off_over_20s event per period.
+      // Any attentive frame re-arms it so the next sustained lapse can fire again.
+      if (!frame.attentive) {
+        st.gazeOffStreak += 1;
+        if (st.gazeOffStreak === SUSTAINED_GAZE_OFF_STREAK && isScoring) {
+          onSustainedGazeOffRef.current?.();
+        }
+      } else {
+        st.gazeOffStreak = 0;
+      }
+
       // live meters (responsive EMA of pass/fail)
       liveAttRef.current = liveAttRef.current * (1 - LIVE_ALPHA) + (frame.attentive ? 100 : 0) * LIVE_ALPHA;
       liveEcRef.current = liveEcRef.current * (1 - LIVE_ALPHA) + (frame.eyeContact ? 100 : 0) * LIVE_ALPHA;
       setAttentivenessScore(clampScore(liveAttRef.current));
       setEyeContactScore(clampScore(liveEcRef.current));
 
-      // cumulative session grades (submit these)
+      // cumulative session grades (mirrored locally; backend is the authority)
       setSessionAttentiveness(clampScore((st.attentive / st.total) * 100));
       setSessionEyeContact(clampScore((st.eyeContact / st.total) * 100));
+
+      // Send the per-frame classification to the page so it can batch + POST it.
+      // The backend recomputes the official grade from these samples.
+      if (isScoring) {
+        onSampleRef.current?.({ attentive: frame.attentive, eye_contact: frame.eyeContact });
+      }
 
       // live warning string for the overlay + debounced toasts
       let w: string | null = null;

@@ -1,5 +1,24 @@
-"""Prepare engine.py for Django: fix paths, lazy-load models, drop notebook verification."""
+"""DEPRECATED engine.py generator.
+
+This script used to regenerate engine.py from engine_source.py. It is now STALE:
+the live engine.py has been hand-edited well beyond engine_source.py (reference +
+semantic scoring, completion ratio, empty-answer handling, the weighted final-score
+formula, instant tab-switch hard fail, etc.). Running this would OVERWRITE engine.py
+with the old, inferior engine and silently break scoring.
+
+engine.py is now the source of truth. This generator is disabled on purpose. If you
+ever need to regenerate, first port the current engine.py logic back into
+engine_source.py, then remove this guard.
+"""
+import sys
 from pathlib import Path
+
+print(
+    "prepare_engine.py is disabled: engine.py is the source of truth and running this "
+    "would revert it to an older, broken version. See the module docstring.",
+    file=sys.stderr,
+)
+sys.exit(1)
 
 ROOT = Path(__file__).resolve().parent
 src = (ROOT / "engine_source.py").read_text(encoding="utf-8")

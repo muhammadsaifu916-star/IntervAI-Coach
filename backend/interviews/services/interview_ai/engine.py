@@ -307,10 +307,13 @@ def backend_style_cooldown_days(final_score, decision, hard_fail_triggered=False
     return 0
 
 def _focus_event_count(session_input):
-    """Combined count of low-severity 'focus' violations."""
+    """Combined count of low-severity 'focus' violations.
+
+    Tab switches are intentionally excluded: they are treated as an instant
+    integrity hard fail in apply_hard_fail_rules(), not a tiered focus event.
+    """
     return (
-        int(session_input.get('tab_switches', 0))
-        + int(session_input.get('window_blur_events', 0))
+        int(session_input.get('window_blur_events', 0))
         + int(session_input.get('gaze_off_over_20s', 0))
     )
 
@@ -324,9 +327,10 @@ def focus_violation_penalty(session_input):
 def apply_hard_fail_rules(session_input):
     """Two-tier proctoring.
 
-    Integrity violations fail instantly. Focus violations (tab/blur/gaze) only fail
+    Integrity violations fail instantly. Focus violations (blur/gaze) only fail
     once their combined count reaches FOCUS_VIOLATION_HARD_FAIL_LIMIT; below that they
     are penalised via focus_violation_penalty() instead of ending the attempt.
+    A single tab switch is treated as an integrity violation and fails instantly.
     """
     # An explicit client-side security termination is always a hard fail.
     if bool(session_input.get('terminated_by_violation', False)):
@@ -335,6 +339,7 @@ def apply_hard_fail_rules(session_input):
     integrity_checks = [
         ('camera_available',       lambda v: int(v) != 1, 'Camera access was unavailable during the interview.'),
         ('mic_available',          lambda v: int(v) != 1, 'Microphone access was unavailable during the interview.'),
+        ('tab_switches',           lambda v: int(v) > 0,  'The interview tab was switched away from, which is not allowed.'),
         ('screenshot_attempted',   lambda v: int(v) > 0,  'A screenshot attempt was detected during the interview.'),
         ('device_detected',        lambda v: int(v) > 0,  'An external device was detected during the interview.'),
         ('english_only_violation', lambda v: int(v) > 0,  'A response violated the English-only rule.'),
